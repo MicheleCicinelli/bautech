@@ -1,0 +1,1303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="bolla_new" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" isFloatColumnFooter="true">
+	<property name="ireport.zoom" value="2.0490403660952117"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="384"/>
+	<property name="ireport.scriptlethandling" value="0"/>
+	<property name="ireport.encoding" value="UTF-8"/>
+	<import value="net.sf.jasperreports.engine.*"/>
+	<import value="java.util.*"/>
+	<import value="net.sf.jasperreports.engine.data.*"/>
+	<parameter name="DOCUMENT_ID" class="java.lang.String"/>
+	<parameter name="BASE_WEB" class="java.lang.String" isForPrompting="false">
+		<defaultValueExpression><![CDATA["http://localhost/openbravo"]]></defaultValueExpression>
+	</parameter>
+	<queryString>
+		<![CDATA[WITH
+  "location" AS (
+    SELECT
+      loc.c_location_id,
+      ctrl.ad_language,
+      loc.address1 || COALESCE(' ' || loc.address2,'') AS address,
+      COALESCE(loc.city,'') AS city,
+      COALESCE(loc.postal,'') AS postal,
+      COALESCE(ctrl.name,cou.name,'') AS country,
+      COALESCE(cou.countrycode,'') AS countrycode,
+      COALESCE(reg.name,'') AS regioncode,
+      COALESCE(reg.description,'') AS region,
+      COALESCE(cou.ad_language, cli.ad_language, 'en_EN') AS country_lang
+    FROM c_location loc
+    LEFT JOIN c_region reg ON reg.c_region_id = loc.c_region_id
+    LEFT JOIN c_country cou ON cou.c_country_id = loc.c_country_id
+    LEFT JOIN c_country_trl ctrl ON ctrl.c_country_id = cou.c_country_id
+    LEFT JOIN ad_client cli ON cli.ad_client_id = loc.ad_client_id)
+SELECT
+  -- Organization info
+  m.ad_org_id as org_id,
+ orginfo.taxid as org_iva,
+  COALESCE(org.social_name,org.name) as org_name,
+  oloc.address as org_address,
+  oloc.city as org_city,
+  oloc.postal as org_postal,
+  oloc.country as org_country,
+  oloc.countrycode as org_countrycode,
+  oloc.regioncode as org_regioncode,
+  oloc.region as org_region,
+  --orginfo.em_opfatt_headingline_a as org_heading1,
+  --orginfo.em_opfatt_headingline_b as org_heading2,
+  --orginfo.em_opfatt_headingline_c as org_heading3,
+  --orginfo.em_base_cellulare as contact,
+  -- Document info
+  m.movementdate as inv_date,
+  to_char( m.movementdate) as inv_datestr,
+  m.documentno as inv_docno,
+  m.description as inv_desc,
+  ord.c_order_id,
+  ord.documentno as orderdocno,
+  ord.dateordered as dateordered,
+  m.deliveryviarule as metodo,
+  --m.poreference as inv_poreference,
+  m.freightcostrule as porto,
+  --COALESCE(paytermtrl.name,payterm.name) as inv_paymentterm,
+  --fp.name as inv_paymentmethod,
+  --finacc.name as inv_bankname,
+  --finacc.iban as inv_iban,
+  --ROUND(i.totallines,2) as inv_netamt,
+  --ROUND(i.grandtotal,2) as inv_grossamt,
+  --ROUND(i.totalpaid,2) as inv_totalpaid,
+  --ROUND(i.outstandingamt,2) as inv_outstandingamt,
+  --curr.cursymbol as inv_currencysymb,
+  --curr.iso_code as inv_currency,
+  -- Customer info
+  bp.name as bp_name,
+  bp.name2 as bp_cf,
+  bp.value as bp_code,
+  bp.fiscalcode as bp_fiscalcode,
+  bp.taxid as bp_taxid,
+  bloc.address as bp_address,
+  bloc.city as bp_city,
+  bloc.postal as bp_postal,
+  bloc.country as bp_country,
+  bloc.regioncode as bp_regioncode,
+  bloc.region as bp_region,
+
+  -- Destination info
+
+  case when destbloc.address is not null then destbloc.address else  bloc.address end as dest_address,
+  case when destbloc.city  is not null then destbloc.city else bloc.city end as dest_city,
+  case when destbloc.postal  is not null then destbloc.postal else bloc.postal end as dest_postal,
+  case when destbloc.country  is not null then destbloc.country else bloc.country end as  dest_country,
+  case when destbloc.regioncode   is not null then destbloc.regioncode else bloc.regioncode  end as  dest_regioncode,
+  case when destbloc.region   is not null then destbloc.region else bloc.region end as  dest_region,
+
+
+ -- trasportatore info
+  m_shipper.name as shpname,
+  vet.name as vet_name,
+  vet.value as vet_code,
+  vet.fiscalcode as vet_fiscalcode,
+  vet.taxid as vet_taxid,
+  vetbloc.address as vet_address,
+  vetbloc.city as vet_city,
+  vetbloc.postal as vet_postal,
+  vetbloc.country as vet_country,
+  vetbloc.regioncode as vet_regioncode,
+  vetbloc.region as vet_region,
+
+  -- Lines
+  ml.movementqty as li_qty,
+  COALESCE(uomtrl.name, uom.name) as li_udm,
+ -- ol.linenetamt as li_netamt,
+ -- ol.em_har_discount as li_sconto,
+  --il.priceactual as li_unitprice,
+  p.value as li_prodcode,
+  p.name as li_prodname,
+ -- il.account_id as li_speseacc,
+--  il.financial_invoice_line as li_fil,
+  ml.description as li_proddesc,
+ -- tax.name as li_taxname,
+  --ROUND(tax.rate/100*il.linenetamt,2) as li_taxamt,
+  row_number() OVER (ORDER BY ml.line ASC, ml.m_inoutline_id ASC) as li_lineno,
+  m.nopackages as nr_colli,
+  shipdate,
+  cu.name as causale,
+  --aspetto.name as aspetto,
+  --causale.name as causale,
+ m.deliveryviarule as consegna,
+ ga.description as aspetto,
+ m.em_isd_weight as peso,
+ pr.value as commessa
+
+
+
+FROM m_inout m
+
+-- Customer info
+INNER JOIN c_bpartner bp ON bp.c_bpartner_id = m.c_bpartner_id
+INNER JOIN c_bpartner_location bploc ON bploc.c_bpartner_location_id = m.c_bpartner_location_id
+INNER JOIN "location" bloc ON (bloc.c_location_id = bploc.c_location_id)
+
+
+--Destinazione info
+LEFT JOIN c_bpartner_location destloc ON destloc.c_bpartner_location_id = m.delivery_location_id
+LEFT JOIN "location" destbloc ON (destbloc.c_location_id = destloc.c_location_id )
+
+--trasportatore info
+LEFT JOIN m_shipper  ON m_shipper.m_shipper_id = m.m_shipper_id
+LEFT JOIN c_bpartner vet ON vet.c_bpartner_id = m_shipper.c_bpartner_id
+LEFT JOIN c_bpartner_location vetloc ON vetloc.c_bpartner_id = vet.c_bpartner_id
+LEFT JOIN "location" vetbloc ON (vetbloc.c_location_id = vetloc.c_location_id)
+
+
+-- Organization info
+INNER JOIN ad_org org ON org.ad_org_id = m.ad_org_id
+LEFT  JOIN ad_orginfo orginfo ON orginfo.ad_org_id = m.ad_org_id
+LEFT  JOIN "location" oloc ON (oloc.c_location_id = orginfo.c_location_id)
+-- Document info
+--LEFT  JOIN c_paymentterm payterm ON payterm.c_paymentterm_id = i.c_paymentterm_id
+--LEFT  JOIN c_paymentterm_trl paytermtrl ON (paytermtrl.c_paymentterm_id = payterm.c_paymentterm_id AND
+                                            --paytermtrl.ad_language = bloc.country_lang)
+--LEFT  JOIN FIN_Financial_Account finacc ON finacc.FIN_Financial_Account_ID = bp.FIN_Financial_Account_ID
+--LEFT  JOIN c_currency curr ON curr.c_currency_id = i.c_currency_id
+-- Lines
+INNER JOIN m_inoutline ml ON ml.m_inout_id = m.m_inout_id
+left JOIN m_product p ON p.m_product_id = ml.m_product_id
+--INNER JOIN c_tax tax ON tax.c_tax_id = ml.c_tax_id
+INNER JOIN c_uom uom ON uom.c_uom_id = ml.c_uom_id
+LEFT  JOIN c_uom_trl uomtrl ON (uomtrl.c_uom_id = uom.c_uom_id AND
+                                uomtrl.ad_language = bloc.country_lang)
+--left join opddt_aspetto as aspetto on (aspetto.opddt_aspetto_id = m.em_opddt_aspetto_id)
+--left join opddt_causale as causale on (causale.opddt_causale_id = m.em_opddt_causale_id)
+LEFT JOIN isd_goodsaspect ga ON m.em_isd_goodsaspect_id = ga.isd_goodsaspect_id
+LEFT JOIN c_project pr ON m.c_project_id = pr.c_project_id
+left join bau_causale as cu on m.em_bau_causale_id =  cu.bau_causale_id
+
+
+--Ordine info
+LEFT JOIN c_orderline ordl ON (ml.c_orderline_id = ordl.c_orderline_id)
+LEFT JOIN c_order ord ON (ordl.c_order_id = ord.c_order_id)
+
+
+--LEFT JOIN fin_paymentmethod fp ON i.fin_paymentmethod_id = fp.fin_paymentmethod_id
+--WHERE m.documentno =''
+WHERE m.m_inout_id = $P{DOCUMENT_ID}
+ORDER BY ord.c_order_id, ml.line ASC, ml.m_inoutline_id ASC]]>
+	</queryString>
+	<field name="org_id" class="java.lang.String"/>
+	<field name="org_iva" class="java.lang.String"/>
+	<field name="org_name" class="java.lang.String"/>
+	<field name="org_address" class="java.lang.String"/>
+	<field name="org_city" class="java.lang.String"/>
+	<field name="org_postal" class="java.lang.String"/>
+	<field name="org_country" class="java.lang.String"/>
+	<field name="org_countrycode" class="java.lang.String"/>
+	<field name="org_regioncode" class="java.lang.String"/>
+	<field name="org_region" class="java.lang.String"/>
+	<field name="inv_date" class="java.sql.Timestamp"/>
+	<field name="inv_datestr" class="java.lang.String"/>
+	<field name="inv_docno" class="java.lang.String"/>
+	<field name="inv_desc" class="java.lang.String"/>
+	<field name="c_order_id" class="java.lang.String"/>
+	<field name="orderdocno" class="java.lang.String"/>
+	<field name="dateordered" class="java.sql.Timestamp"/>
+	<field name="metodo" class="java.lang.String"/>
+	<field name="porto" class="java.lang.String"/>
+	<field name="bp_name" class="java.lang.String"/>
+	<field name="bp_cf" class="java.lang.String"/>
+	<field name="bp_code" class="java.lang.String"/>
+	<field name="bp_fiscalcode" class="java.lang.String"/>
+	<field name="bp_taxid" class="java.lang.String"/>
+	<field name="bp_address" class="java.lang.String"/>
+	<field name="bp_city" class="java.lang.String"/>
+	<field name="bp_postal" class="java.lang.String"/>
+	<field name="bp_country" class="java.lang.String"/>
+	<field name="bp_regioncode" class="java.lang.String"/>
+	<field name="bp_region" class="java.lang.String"/>
+	<field name="dest_address" class="java.lang.String"/>
+	<field name="dest_city" class="java.lang.String"/>
+	<field name="dest_postal" class="java.lang.String"/>
+	<field name="dest_country" class="java.lang.String"/>
+	<field name="dest_regioncode" class="java.lang.String"/>
+	<field name="dest_region" class="java.lang.String"/>
+	<field name="shpname" class="java.lang.String"/>
+	<field name="vet_name" class="java.lang.String"/>
+	<field name="vet_code" class="java.lang.String"/>
+	<field name="vet_fiscalcode" class="java.lang.String"/>
+	<field name="vet_taxid" class="java.lang.String"/>
+	<field name="vet_address" class="java.lang.String"/>
+	<field name="vet_city" class="java.lang.String"/>
+	<field name="vet_postal" class="java.lang.String"/>
+	<field name="vet_country" class="java.lang.String"/>
+	<field name="vet_regioncode" class="java.lang.String"/>
+	<field name="vet_region" class="java.lang.String"/>
+	<field name="li_qty" class="java.math.BigDecimal"/>
+	<field name="li_udm" class="java.lang.String"/>
+	<field name="li_prodcode" class="java.lang.String"/>
+	<field name="li_prodname" class="java.lang.String"/>
+	<field name="li_proddesc" class="java.lang.String"/>
+	<field name="li_lineno" class="java.lang.Long"/>
+	<field name="nr_colli" class="java.math.BigDecimal"/>
+	<field name="shipdate" class="java.sql.Timestamp"/>
+	<field name="causale" class="java.lang.String"/>
+	<field name="consegna" class="java.lang.String"/>
+	<field name="aspetto" class="java.lang.String"/>
+	<field name="peso" class="java.math.BigDecimal"/>
+	<field name="commessa" class="java.lang.String"/>
+	<variable name="li_netamt_1" class="java.math.BigDecimal" resetType="Page" calculation="Sum">
+		<variableExpression><![CDATA[]]></variableExpression>
+	</variable>
+	<variable name="tot_imposta" class="java.math.BigDecimal" calculation="Sum">
+		<variableExpression><![CDATA[]]></variableExpression>
+	</variable>
+	<group name="ORDER GROUP">
+		<groupExpression><![CDATA[$F{c_order_id}]]></groupExpression>
+		<groupHeader>
+			<band height="12">
+				<textField isBlankWhenNull="false">
+					<reportElement key="textField" x="5" y="1" width="155" height="10" isRemoveLineWhenBlank="true">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font fontName="DejaVu Sans" size="6" isBold="true"/>
+					</textElement>
+					<textFieldExpression class="java.lang.String"><![CDATA["-Rif. Ordine n° " + ($F{orderdocno}==null?"--":$F{orderdocno}) + " del " + new java.text.SimpleDateFormat("dd/MM/yyyy").format($F{dateordered})]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="0" y="0" width="20" height="12" isRemoveLineWhenBlank="true">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<box>
+						<leftPen lineWidth="0.75" lineColor="#FFA15A"/>
+						<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+					</box>
+					<textElement>
+						<font fontName="DejaVu Sans"/>
+					</textElement>
+					<text><![CDATA[]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="546" y="0" width="9" height="12" isRemoveLineWhenBlank="true">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<box>
+						<leftPen lineWidth="0.0" lineColor="#FFA15A"/>
+						<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+						<rightPen lineWidth="0.75" lineColor="#FFA15A"/>
+					</box>
+					<textElement>
+						<font fontName="DejaVu Sans"/>
+					</textElement>
+					<text><![CDATA[]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="3">
+				<line>
+					<reportElement x="0" y="1" width="555" height="1" isRemoveLineWhenBlank="true" forecolor="#FFA15A">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<graphicElement>
+						<pen lineWidth="0.25"/>
+					</graphicElement>
+				</line>
+				<staticText>
+					<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="0" y="-2" width="20" height="5" isRemoveLineWhenBlank="true">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<box>
+						<leftPen lineWidth="0.75" lineColor="#FFA15A"/>
+						<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+					</box>
+					<textElement>
+						<font fontName="DejaVu Sans"/>
+					</textElement>
+					<text><![CDATA[]]></text>
+				</staticText>
+				<staticText>
+					<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="546" y="-1" width="9" height="4">
+						<printWhenExpression><![CDATA[$F{c_order_id}!=null]]></printWhenExpression>
+					</reportElement>
+					<box>
+						<leftPen lineWidth="0.0" lineColor="#FFA15A"/>
+						<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+						<rightPen lineWidth="0.75" lineColor="#FFA15A"/>
+					</box>
+					<textElement>
+						<font fontName="DejaVu Sans"/>
+					</textElement>
+					<text><![CDATA[]]></text>
+				</staticText>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="221" splitType="Stretch">
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="280" y="73" width="116" height="24" forecolor="#FDCFAA" backcolor="#FDCFAA"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="0" y="73" width="116" height="24" forecolor="#FDCFAA" backcolor="#FDCFAA"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="0" y="90" width="274" height="98" forecolor="#FFA15A"/>
+				<graphicElement>
+					<pen lineWidth="0.75"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement key="staticText" x="6" y="73" width="110" height="16" forecolor="#000000"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Destinatario]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" x="7" y="92" width="38" height="15"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Spett.le]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="7" y="109" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_name}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="7" y="123" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_address}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="7" y="137" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_postal} + " " + $F{bp_city} + " (" + $F{bp_regioncode} + ")"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="7" y="161" width="72" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[P.Iva/C.F]]></text>
+			</staticText>
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="280" y="90" width="274" height="98" forecolor="#FFA15A"/>
+				<graphicElement>
+					<pen lineWidth="0.75"/>
+				</graphicElement>
+			</rectangle>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="178" y="161" width="91" height="16" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_cf}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="79" y="161" width="99" height="16" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_taxid}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField-37" x="276" y="52" width="279" height="16" forecolor="#000000"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle" markup="html">
+					<font fontName="DejaVu Sans" size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["<b>D.D.T.</b> " + $F{inv_docno} + " <b>del</b> " + new java.text.SimpleDateFormat("dd/MM/yyyy").format($F{inv_date})]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" x="286" y="74" width="110" height="16" forecolor="#000000"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Destinazione]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" x="286" y="92" width="38" height="15"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Spett.le]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="286" y="123" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_address}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="286" y="137" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_postal} + " " + $F{bp_city} + " (" + $F{bp_regioncode} + ")"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="286" y="109" width="255" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_name}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="45" y="92" width="217" height="15"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="9" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_code}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="324" y="92" width="217" height="15"/>
+				<textElement verticalAlignment="Top">
+					<font fontName="DejaVu Sans" size="9" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{bp_code}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="175" y="18" width="372" height="11"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="7"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{org_address} + " - " + $F{org_postal} + " " + $F{org_city} + " (" + $F{org_regioncode} + ") - Tel.080 4622116 - Fax 080 4624154"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="175" y="1" width="376" height="15" forecolor="#FFA15A"/>
+				<box>
+					<bottomPen lineWidth="0.75"/>
+				</box>
+				<textElement>
+					<font fontName="DejaVu Sans" size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{org_name}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="175" y="29" width="368" height="10"/>
+				<textElement markup="html">
+					<font fontName="DejaVu Sans" size="7"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["P.IVA C.F. CCIAA di Bari"+" "+ $F{org_iva} + " - " +"Capitale Sociale i.v.: € 30.000,00"]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Left" vAlign="Middle" isUsingCache="true" onErrorType="Icon">
+				<reportElement key="image" x="-10" y="3" width="170" height="60"/>
+				<imageExpression class="java.awt.Image"><![CDATA[org.openbravo.erpCommon.utility.Utility.showImageLogo("yourcompanylegal", $F{org_id})]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="78" splitType="Stretch">
+			<printWhenExpression><![CDATA[$V{PAGE_NUMBER} > 1]]></printWhenExpression>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField-37" x="276" y="60" width="278" height="16" forecolor="#000000"/>
+				<box rightPadding="3">
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle" markup="html">
+					<font fontName="DejaVu Sans" size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["<b>D.D.T.</b> " + $F{inv_docno} + " <b>del</b> " + $F{inv_datestr}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="160" y="17" width="270" height="10"/>
+				<textElement markup="html">
+					<font fontName="DejaVu Sans" size="6"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="160" y="29" width="390" height="11"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="6"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{org_address} + " - " + $F{org_postal} + " " + $F{org_city} + " (" + $F{org_regioncode} + ") - Tel.080/3267616 - Fax 080/3267478"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="160" y="1" width="394" height="15" forecolor="#FFA15A"/>
+				<box>
+					<bottomPen lineWidth="0.75"/>
+				</box>
+				<textElement>
+					<font fontName="DejaVu Sans" size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{org_name}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="160" y="40" width="386" height="10"/>
+				<textElement markup="html">
+					<font fontName="DejaVu Sans" size="6"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[]]></textFieldExpression>
+			</textField>
+			<image scaleImage="RetainShape" hAlign="Left" vAlign="Middle" isUsingCache="true" onErrorType="Icon">
+				<reportElement key="image" x="-10" y="3" width="170" height="60"/>
+				<imageExpression class="java.awt.Image"><![CDATA[org.openbravo.erpCommon.utility.Utility.showImageLogo("yourcompanylegal", $F{org_id})]]></imageExpression>
+			</image>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="39" splitType="Stretch">
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="0" y="21" width="555" height="17" forecolor="#FFA15A" backcolor="#FDCFAA"/>
+				<graphicElement>
+					<pen lineWidth="0.75"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Opaque" x="0" y="33" width="555" height="6" forecolor="#FFFFFF" backcolor="#FDCFAA"/>
+				<box>
+					<topPen lineWidth="0.0" lineColor="#FFFFFF"/>
+					<leftPen lineWidth="0.75" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="0.75" lineColor="#FDCFAA"/>
+					<rightPen lineWidth="0.75" lineColor="#FFA15A"/>
+				</box>
+				<textElement>
+					<font fontName="DejaVu Sans"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="20" y="22" width="339" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Prodotto - Descrizione]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="373" y="22" width="103" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Quantità]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="119" y="2" width="192" height="16"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{causale}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="2" y="2" width="117" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="10" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Causale del Trasporto:]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18">
+			<staticText>
+				<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="546" y="-1" width="9" height="19"/>
+				<box>
+					<leftPen lineWidth="0.0" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+					<rightPen lineWidth="0.75" lineColor="#FFA15A"/>
+				</box>
+				<textElement>
+					<font fontName="DejaVu Sans"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" stretchType="RelativeToBandHeight" mode="Transparent" x="0" y="-1" width="20" height="19"/>
+				<box>
+					<leftPen lineWidth="0.75" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="0.0" lineColor="#FFFFFF"/>
+				</box>
+				<textElement>
+					<font fontName="DejaVu Sans"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<textField>
+				<reportElement mode="Transparent" x="20" y="1" width="339" height="16"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{li_prodname} + ($F{li_proddesc}==null ? "": " - " +$F{li_proddesc})]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement x="364" y="0" width="112" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8"/>
+				</textElement>
+				<textFieldExpression class="java.math.BigDecimal"><![CDATA[$F{li_qty}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="61">
+			<rectangle radius="6">
+				<reportElement key="" mode="Opaque" x="0" y="1" width="555" height="11" forecolor="#FFA15A" backcolor="#FFFFFF"/>
+				<graphicElement>
+					<pen lineWidth="0.75"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement key="" stretchType="RelativeToBandHeight" mode="Opaque" x="0" y="0" width="555" height="6" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.75" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.75" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.75" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font fontName="DejaVu Sans" size="105" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+		</band>
+	</columnFooter>
+	<pageFooter>
+		<band height="24" splitType="Stretch">
+			<textField evaluationTime="Report" isBlankWhenNull="false">
+				<reportElement key="textField" x="533" y="3" width="22" height="16"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[" "+$V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="476" y="3" width="32" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Pagina]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="508" y="3" width="25" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$V{PAGE_NUMBER} + " /"]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField-37" x="9" y="3" width="253" height="16" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="html">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["<b>D.D.T.</b> " + $F{inv_docno} + " <b>del</b> " + $F{inv_datestr}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<lastPageFooter>
+		<band height="252" splitType="Stretch">
+			<rectangle radius="6">
+				<reportElement key="rectangle" x="1" y="96" width="554" height="122" forecolor="#FFA15A"/>
+				<graphicElement>
+					<pen lineWidth="1.25"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="476" y="230" width="32" height="16" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Pagina]]></text>
+			</staticText>
+			<textField isBlankWhenNull="false">
+				<reportElement key="textField" x="508" y="230" width="25" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$V{PAGE_NUMBER} + " /"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report" isBlankWhenNull="false">
+				<reportElement key="textField" x="533" y="230" width="22" height="16"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[" "+$V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" x="4" y="23" width="110" height="16" forecolor="#000000"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Note:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="29" y="122" width="260" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="32" y="124" width="103" height="21"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{shpname}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="8" y="107" width="72" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{aspetto}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="dd/MM/yyyy" isBlankWhenNull="true">
+				<reportElement key="textField" x="294" y="134" width="122" height="15"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.sql.Timestamp"><![CDATA[$F{shipdate}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="435" y="97" width="58" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[NUMERO COLLI]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="6" y="97" width="74" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[Aspetto Esteriore Beni]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="32" y="157" width="84" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[PORTO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="291" y="123" width="125" height="11" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DATA INIZIO TRASPORTO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="291" y="190" width="264" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FIRMA DESTINATARIO]]></text>
+			</staticText>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="4" y="38" width="337" height="23" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{inv_desc}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="121" y="168" width="162" height="13"/>
+				<textElement verticalAlignment="Middle" rotation="None">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{metodo}.equalsIgnoreCase( "S" )? "Vettore":
+$F{metodo}.equalsIgnoreCase( "P" )? "Destinatario":""]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="116" y="190" width="173" height="28" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="438" y="107" width="55" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.math.BigDecimal"><![CDATA[$F{nr_colli}]]></textFieldExpression>
+			</textField>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField-37" x="0" y="230" width="261" height="16" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Middle" markup="html">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["<b>D.D.T.</b> " + $F{inv_docno} + " <b>del</b> " + new java.text.SimpleDateFormat("dd/MM/yyyy").format($F{inv_date})]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="34" y="168" width="82" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{porto}.equalsIgnoreCase("C")?"Assegnato":"Franco"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" x="4" y="61" width="110" height="16" forecolor="#000000"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Commessa:]]></text>
+			</staticText>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField" x="4" y="77" width="187" height="13" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement verticalAlignment="Top">
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{commessa}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="361" y="96" width="72" height="26" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="289" y="96" width="72" height="26" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="291" y="97" width="69" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[PESO]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="365" y="107" width="67" height="14"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="8" isBold="false"/>
+				</textElement>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="363" y="97" width="69" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[VOLUME]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="433" y="122" width="122" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="433" y="156" width="122" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="435" y="123" width="58" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FIRMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="435" y="157" width="58" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FIRMA]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="289" y="122" width="144" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="289" y="156" width="144" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="291" y="157" width="69" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DATA RITIRO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="29" y="156" width="87" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="1" y="122" width="28" height="68" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="4" y="191" width="52" height="12" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[DATA RITIRO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="119" y="191" width="82" height="11" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[FIRMA CONDUCENTE]]></text>
+			</staticText>
+			<textField pattern="" isBlankWhenNull="true">
+				<reportElement key="textField-37" x="2" y="219" width="553" height="10" forecolor="#000000"/>
+				<box>
+					<pen lineWidth="0.25"/>
+					<topPen lineWidth="0.0" lineColor="#999999"/>
+					<leftPen lineWidth="0.0" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0" lineColor="#999999"/>
+					<rightPen lineWidth="0.0" lineColor="#999999"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle" markup="html">
+					<font fontName="DejaVu Sans" size="6" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["In caso di ritardo pagamento verranno addebitati gli interessi di mora ai sensi del D.Lgs 231/2002"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="116" y="156" width="173" height="34" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box>
+					<pen lineWidth="0.25" lineColor="#FFA15A"/>
+					<topPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<leftPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<bottomPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+					<rightPen lineWidth="1.0" lineStyle="Solid" lineColor="#FFA15A"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[]]></text>
+			</staticText>
+			<staticText>
+				<reportElement key="staticText" mode="Transparent" x="119" y="157" width="69" height="10" forecolor="#000000" backcolor="#FFFFFF"/>
+				<box leftPadding="3" rightPadding="0">
+					<pen lineWidth="0.25" lineColor="#999999"/>
+					<topPen lineWidth="0.0"/>
+					<leftPen lineWidth="0.0" lineStyle="Solid" lineColor="#999999"/>
+					<bottomPen lineWidth="0.0"/>
+					<rightPen lineWidth="0.0"/>
+				</box>
+				<textElement verticalAlignment="Middle">
+					<font fontName="DejaVu Sans" size="5" isBold="true" pdfFontName="Helvetica-Bold"/>
+				</textElement>
+				<text><![CDATA[TRASPORTO A CURA DEL]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="135" y="124" width="151" height="11"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="7" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{vet_address}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="135" y="134" width="151" height="11">
+					<printWhenExpression><![CDATA[$F{vet_city}!=null]]></printWhenExpression>
+				</reportElement>
+				<textElement>
+					<font fontName="DejaVu Sans" size="7" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[($F{vet_postal}==null?"":$F{vet_postal}) + " " + ($F{vet_city}==null?"":$F{vet_city}) + " (" + ($F{vet_regioncode}==null?"":$F{vet_regioncode}) + ")"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement key="textField" x="135" y="144" width="151" height="11"/>
+				<textElement>
+					<font fontName="DejaVu Sans" size="7" isBold="false"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA[$F{vet_taxid}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement key="textField" x="7" y="123" width="16" height="66"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle" rotation="Right">
+					<font fontName="DejaVu Sans" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression class="java.lang.String"><![CDATA["VETTORE"]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" pattern="#,##0.00" isBlankWhenNull="true">
+				<reportElement x="297" y="107" width="63" height="14"/>
+				<textElement verticalAlignment="Top">
+					<font fontName="DejaVu Sans" size="8"/>
+				</textElement>
+				<textFieldExpression class="java.math.BigDecimal"><![CDATA[$F{li_qty}]]></textFieldExpression>
+			</textField>
+		</band>
+	</lastPageFooter>
+	<summary>
+		<band splitType="Stretch"/>
+	</summary>
+</jasperReport>
